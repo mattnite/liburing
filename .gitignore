@@ -36,3 +36,6 @@ liburing.pc
 liburing-ffi.pc
 
 cscope.out
+
+zig-out
+zig-cache
