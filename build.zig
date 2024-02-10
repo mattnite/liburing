@@ -29,7 +29,6 @@ pub fn build(b: *Build) void {
     });
     run_version_h.addArg("-o");
     const version_h = run_version_h.addOutputFileArg("io_uring_version.h");
-    const install_version_h = b.addInstallFile(version_h, "include/liburing/io_uring_version.h");
 
     const generate_compat_h = b.addExecutable(.{
         .name = "generate-compat-h",
@@ -49,13 +48,6 @@ pub fn build(b: *Build) void {
         run_compat_h.addArg("--have-idtype-t");
     run_compat_h.addArg("-o");
     const compat_h = run_compat_h.addOutputFileArg("compat.h");
-    const install_compat_h = b.addInstallFile(compat_h, "include/liburing/compat.h");
-
-    const install_headers = b.addInstallDirectory(.{
-        .source_dir = .{ .path = "src/include" },
-        .install_dir = .{ .header = {} },
-        .install_subdir = "",
-    });
 
     const uring = b.addStaticLibrary(.{
         .name = "uring",
@@ -72,10 +64,20 @@ pub fn build(b: *Build) void {
         });
 
     uring.addIncludePath(.{ .path = b.getInstallPath(.{ .header = {} }, "") });
-    uring.step.dependOn(&install_version_h.step);
-    uring.step.dependOn(&install_compat_h.step);
-    uring.step.dependOn(&install_headers.step);
+    install_header_path(uring, version_h, "liburing/io_uring_version.h");
+    install_header_path(uring, compat_h, "liburing/compat.h");
+    uring.installHeader("src/include/liburing.h", "liburing.h");
+    uring.installHeader("src/include/liburing/io_uring.h", "liburing/io_uring.h");
+    uring.installHeader("src/include/liburing/barrier.h", "liburing/barrier.h");
+
     b.installArtifact(uring);
+}
+
+fn install_header_path(compile: *Build.CompileStep, path: Build.LazyPath, dest_rel_path: []const u8) void {
+    const b = compile.step.owner;
+    const install_file = b.addInstallFileWithDir(path, .header, dest_rel_path);
+    compile.step.dependOn(&install_file.step);
+    compile.installed_headers.append(&install_file.step) catch @panic("OOM");
 }
 
 const srcs = &.{
